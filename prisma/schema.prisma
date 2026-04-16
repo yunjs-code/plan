@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Textbook {
+  id        String    @id @default(cuid())
+  name      String
+  type      String    // CONCEPT | PROBLEM
+  sessions  Session[]
+  createdAt DateTime  @default(now())
+}
+
+model Lecture {
+  id                String   @id @default(cuid())
+  name              String
+  totalCount        Int
+  doneCount         Int      @default(0)
+  minutesPerLecture Int
+  subject           String
+  createdAt         DateTime @default(now())
+}
+
+model Session {
+  id          String      @id @default(cuid())
+  date        DateTime
+  type        String
+  subject     String
+  textbookId  String?
+  chapter     String?
+  problemNos  String?
+  durationMin Int
+  completedAt DateTime?
+  reviews     Review[]
+  wrongItems  WrongItem[]
+  createdAt   DateTime    @default(now())
+  textbook    Textbook?   @relation(fields: [textbookId], references: [id])
+}
+
+model Review {
+  id        String    @id @default(cuid())
+  sessionId String
+  dueDate   DateTime
+  doneAt    DateTime?
+  session   Session   @relation(fields: [sessionId], references: [id])
+}
+
+model WrongItem {
+  id        String  @id @default(cuid())
+  sessionId String
+  problemNo String
+  errorType String
+  note      String?
+  imageUrl  String?
+  session   Session @relation(fields: [sessionId], references: [id])
+}
+
+model DailyPlan {
+  id           String   @id @default(cuid())
+  date         DateTime @unique
+  availableMin Int
+  plannedMin   Int
+  actualMin    Int      @default(0)
+  items        Json
+}
+
+model Plan {
+  id        String   @id @default(cuid())
+  type      String   // QUARTER | MONTH | WEEK | DAY
+  startDate DateTime
+  endDate   DateTime
+  title     String
+  content   Json
+  createdAt DateTime @default(now())
+}
+
+model ExerciseSet {
+  id            String           @id @default(cuid())
+  subject       String
+  name          String
+  totalProblems Int
+  createdAt     DateTime         @default(now())
+  attempts      ExerciseAttempt[]
+}
+
+model ExerciseAttempt {
+  id            String      @id @default(cuid())
+  exerciseSetId String
+  date          DateTime
+  correctCount  Int
+  totalProblems Int
+  note          String?
+  round         Int
+  createdAt     DateTime    @default(now())
+  exerciseSet   ExerciseSet @relation(fields: [exerciseSetId], references: [id], onDelete: Cascade)
+}
