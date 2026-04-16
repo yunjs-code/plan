@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import type { Session } from '@prisma/client'
 
 function toLocalMidnight(date: Date) {
   const d = new Date(date)
@@ -94,7 +95,7 @@ export async function GET() {
   const weekRate = weekPlanned > 0 ? Math.round((weekActual / weekPlanned) * 100) : null
 
   // 월간 학습률
-  const monthActual = monthSessions.reduce((s: number, s2: { durationMin: number }) => s + s2.durationMin, 0)
+  const monthActual = monthSessions.reduce((s: number, s2: Session) => s + s2.durationMin, 0)
   const monthPlannedMin = monthPlan
     ? ((monthPlan.content as { goals?: unknown[] })?.goals?.length ?? 0) > 0
       ? null
@@ -105,14 +106,14 @@ export async function GET() {
 
   // 과목별 분포
   const subjectMap: Record<string, number> = {}
-  recentSessions.forEach(s => {
+  recentSessions.forEach((s: Session) => {
     subjectMap[s.subject] = (subjectMap[s.subject] ?? 0) + s.durationMin
   })
   const subjectChart = Object.entries(subjectMap).map(([name, value]) => ({ name, value }))
 
   // 학습 유형별 분포
   const typeMap: Record<string, number> = {}
-  recentSessions.forEach(s => {
+  recentSessions.forEach((s: Session) => {
     typeMap[s.type] = (typeMap[s.type] ?? 0) + s.durationMin
   })
   const typeChart = Object.entries(typeMap).map(([name, value]) => ({ name, value }))
@@ -125,7 +126,7 @@ export async function GET() {
     const key = `${d.getMonth() + 1}/${d.getDate()}`
     days[key] = 0
   }
-  recentSessions.forEach(s => {
+  recentSessions.forEach((s: Session) => {
     const d = new Date(s.date)
     const key = `${d.getMonth() + 1}/${d.getDate()}`
     if (key in days) days[key] += s.durationMin
