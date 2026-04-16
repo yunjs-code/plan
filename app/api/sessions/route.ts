@@ -1,4 +1,8 @@
 import { prisma } from '@/lib/prisma'
+import type { PrismaClient } from '@prisma/client'
+import type { ITXClientDenyList } from '@prisma/client/runtime/library'
+
+type PrismaTx = Omit<PrismaClient, ITXClientDenyList>
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -43,7 +47,7 @@ export async function POST(request: Request) {
 
   const REVIEW_OFFSETS = [1, 3, 7, 14, 21, 30]
 
-  const [session] = await prisma.$transaction(async (tx) => {
+  const [session] = await prisma.$transaction(async (tx: PrismaTx) => {
     const session = await tx.session.create({
       data: {
         date: sessionDate,
