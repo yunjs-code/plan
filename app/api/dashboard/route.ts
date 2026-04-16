@@ -13,6 +13,22 @@ type Session = {
   createdAt: Date
 }
 
+type Review = {
+  id: string
+  sessionId: string
+  dueDate: Date
+  doneAt: Date | null
+}
+
+type DailyPlan = {
+  id: string
+  date: Date
+  availableMin: number
+  plannedMin: number
+  actualMin: number
+  items: unknown
+}
+
 function toLocalMidnight(date: Date) {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
@@ -69,27 +85,27 @@ export async function GET() {
     prisma.session.findMany({
       where: { date: { gte: monthStart, lte: monthEnd } },
     }),
-    // 6. 최근 7일 세션
+    // 4. 최근 7일 세션
     prisma.session.findMany({
       where: { date: { gte: sevenDaysAgo } },
       orderBy: { date: 'asc' },
     }),
-    // 7. 전체 Review (복습 준수율)
+    // 5. 전체 Review (복습 준수율)
     prisma.review.findMany({
       where: { dueDate: { lte: todayEnd } },
     }),
-    // 8. 강의 진도
+    // 6. 강의 진도
     prisma.lecture.findMany({ orderBy: { createdAt: 'desc' } }),
-    // 월간 계획
+    // 7. 월간 계획
     prisma.plan.findFirst({
       where: { type: 'MONTH', startDate: { gte: monthStart, lte: monthEnd } },
       orderBy: { createdAt: 'desc' },
     }),
-    // 오늘 일별 계획
+    // 8. 오늘 일별 계획
     prisma.dailyPlan.findFirst({
       where: { date: { gte: todayStart, lte: todayEnd } },
     }),
-    // 기한 지난 미완료 복습
+    // 9. 기한 지난 미완료 복습
     prisma.review.findMany({
       where: { dueDate: { lt: todayStart }, doneAt: null },
       include: { session: true },
@@ -99,33 +115,27 @@ export async function GET() {
 
   // 오늘 복습
   const todayReviewTotal = todayReviews.length
-  const todayReviewDone = todayReviews.filter((r: { doneAt: Date | null }) => r.doneAt).length
+  const todayReviewDone = todayReviews.filter((r: Review) => r.doneAt).length
 
   // 주간 학습률
-  const weekActual = weekDailyPlans.reduce((s: number, p: { actualMin: number }) => s + p.actualMin, 0)
-  const weekPlanned = weekDailyPlans.reduce((s: number, p: { plannedMin: number }) => s + p.plannedMin, 0)
+  const weekActual = (weekDailyPlans as DailyPlan[]).reduce((s: number, p: DailyPlan) => s + p.actualMin, 0)
+  const weekPlanned = (weekDailyPlans as DailyPlan[]).reduce((s: number, p: DailyPlan) => s + p.plannedMin, 0)
   const weekRate = weekPlanned > 0 ? Math.round((weekActual / weekPlanned) * 100) : null
 
   // 월간 학습률
-  const monthActual = monthSessions.reduce((s: number, s2: Session) => s + s2.durationMin, 0)
-  const monthPlannedMin = monthPlan
-    ? ((monthPlan.content as { goals?: unknown[] })?.goals?.length ?? 0) > 0
-      ? null
-      : null
-    : null
-  // 월간 계획 시간이 없으면 목표 없음으로 표시
+  const monthActual = (monthSessions as Session[]).reduce((s: number, s2: Session) => s + s2.durationMin, 0)
   const monthRate = monthActual // raw minutes
 
   // 과목별 분포
   const subjectMap: Record<string, number> = {}
-  recentSessions.forEach((s: Session) => {
+  ;(recentSessions as Session[]).forEach((s: Session) => {
     subjectMap[s.subject] = (subjectMap[s.subject] ?? 0) + s.durationMin
   })
   const subjectChart = Object.entries(subjectMap).map(([name, value]) => ({ name, value }))
 
   // 학습 유형별 분포
   const typeMap: Record<string, number> = {}
-  recentSessions.forEach((s: Session) => {
+  ;(recentSessions as Session[]).forEach((s: Session) => {
     typeMap[s.type] = (typeMap[s.type] ?? 0) + s.durationMin
   })
   const typeChart = Object.entries(typeMap).map(([name, value]) => ({ name, value }))
@@ -138,7 +148,7 @@ export async function GET() {
     const key = `${d.getMonth() + 1}/${d.getDate()}`
     days[key] = 0
   }
-  recentSessions.forEach((s: Session) => {
+  ;(recentSessions as Session[]).forEach((s: Session) => {
     const d = new Date(s.date)
     const key = `${d.getMonth() + 1}/${d.getDate()}`
     if (key in days) days[key] += s.durationMin
@@ -147,20 +157,36 @@ export async function GET() {
 
   // 복습 준수율
   const pastReviewTotal = allReviews.length
-  const pastReviewDone = allReviews.filter(r => r.doneAt && new Date(r.doneAt) <= new Date(r.dueDate)).length
+  const pastReviewDone = (allReviews as Review[]).filter(
+    (r: Review) => r.doneAt && new Date(r.doneAt) <= new Date(r.dueDate)
+  ).length
   const reviewRate = pastReviewTotal > 0 ? Math.round((pastReviewDone / pastReviewTotal) * 100) : null
 
   // 오늘 공부 계획 항목
   let todayPlanItems: unknown[] = []
   if (todayDailyPlan) {
-    const raw = todayDailyPlan.items
+    const raw = (todayDailyPlan as DailyPlan).items
     if (Array.isArray(raw)) todayPlanItems = raw
     else if (raw && typeof raw === 'object') todayPlanItems = (raw as { items?: unknown[] }).items ?? []
   }
 
   // 오늘 미완료 계획 항목
-  const incompletePlanItems = (todayPlanItems as { subject: string; type: string; label: string; plannedMin: number; completedAt?: string }[])
-    .filter(it => !it.completedAt)
+  const incompletePlanItems = (
+    todayPlanItems as {
+      subject: string
+      type: string
+      label: string
+      plannedMin: number
+      completedAt?: string
+    }[]
+  ).filter((it) => !it.completedAt)
+
+  // 오늘 실제 공부 시간
+  const todayActualMin = (monthSessions as Session[])
+    .filter((s: Session) => s.date >= todayStart && s.date <= todayEnd)
+    .reduce((sum: number, s: Session) => sum + s.durationMin, 0)
+
+  void monthPlan // 현재 미사용
 
   return Response.json({
     todayReview: { total: todayReviewTotal, done: todayReviewDone, items: todayReviews },
@@ -172,9 +198,7 @@ export async function GET() {
     dailyChart,
     lectures,
     todayPlanItems,
-    todayActualMin: monthSessions
-      .filter(s => s.date >= todayStart && s.date <= todayEnd)
-      .reduce((sum, s) => sum + s.durationMin, 0),
+    todayActualMin,
     overdueReviews,
     incompletePlanItems,
   })
