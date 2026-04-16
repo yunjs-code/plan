@@ -86,7 +86,7 @@ export async function GET() {
 
   // 오늘 복습
   const todayReviewTotal = todayReviews.length
-  const todayReviewDone = todayReviews.filter(r => r.doneAt).length
+  const todayReviewDone = todayReviews.filter((r: { doneAt: Date | null }) => r.doneAt).length
 
   // 주간 학습률
   const weekActual = weekDailyPlans.reduce((s, p) => s + p.actualMin, 0)
