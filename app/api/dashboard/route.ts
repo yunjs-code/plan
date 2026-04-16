@@ -89,12 +89,12 @@ export async function GET() {
   const todayReviewDone = todayReviews.filter((r: { doneAt: Date | null }) => r.doneAt).length
 
   // 주간 학습률
-  const weekActual = weekDailyPlans.reduce((s, p) => s + p.actualMin, 0)
-  const weekPlanned = weekDailyPlans.reduce((s, p) => s + p.plannedMin, 0)
+  const weekActual = weekDailyPlans.reduce((s: number, p) => s + p.actualMin, 0)
+  const weekPlanned = weekDailyPlans.reduce((s: number, p) => s + p.plannedMin, 0)
   const weekRate = weekPlanned > 0 ? Math.round((weekActual / weekPlanned) * 100) : null
 
   // 월간 학습률
-  const monthActual = monthSessions.reduce((s, s2) => s + s2.durationMin, 0)
+  const monthActual = monthSessions.reduce((s: number, s2) => s + s2.durationMin, 0)
   const monthPlannedMin = monthPlan
     ? ((monthPlan.content as { goals?: unknown[] })?.goals?.length ?? 0) > 0
       ? null
