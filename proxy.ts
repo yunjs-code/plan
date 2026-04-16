@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 const SITE_PASSWORD = process.env.SITE_PASSWORD ?? 'studyapp'
 const COOKIE_NAME = 'site_auth'
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // 로그인 페이지와 API는 통과
