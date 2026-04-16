@@ -1,7 +1,17 @@
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@prisma/client'
 
-type Session = Prisma.SessionGetPayload<object>
+type Session = {
+  id: string
+  date: Date
+  type: string
+  subject: string
+  durationMin: number
+  textbookId: string | null
+  chapter: string | null
+  problemNos: string | null
+  completedAt: Date | null
+  createdAt: Date
+}
 
 function toLocalMidnight(date: Date) {
   const d = new Date(date)
