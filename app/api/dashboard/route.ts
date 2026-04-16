@@ -94,7 +94,7 @@ export async function GET() {
   const weekRate = weekPlanned > 0 ? Math.round((weekActual / weekPlanned) * 100) : null
 
   // 월간 학습률
-  const monthActual = monthSessions.reduce((s: number, s2) => s + s2.durationMin, 0)
+  const monthActual = monthSessions.reduce((s: number, s2: { durationMin: number }) => s + s2.durationMin, 0)
   const monthPlannedMin = monthPlan
     ? ((monthPlan.content as { goals?: unknown[] })?.goals?.length ?? 0) > 0
       ? null
