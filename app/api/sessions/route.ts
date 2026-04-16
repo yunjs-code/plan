@@ -1,8 +1,7 @@
 import { prisma } from '@/lib/prisma'
-import type { PrismaClient } from '@prisma/client'
-import type { ITXClientDenyList } from '@prisma/client/runtime/library'
+import type { PrismaClient } from '.prisma/client'
 
-type PrismaTx = Omit<PrismaClient, ITXClientDenyList>
+type PrismaTx = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
