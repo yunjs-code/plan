@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
-import type { PrismaClient } from '.prisma/client'
 
-type PrismaTx = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
+type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
