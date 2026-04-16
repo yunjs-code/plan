@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 
-type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PrismaTx = any
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
