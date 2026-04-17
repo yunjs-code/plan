@@ -539,6 +539,9 @@ export default function DailyPage() {
         })
       }
       prevDateRef.current = date
+      // prevStateRef를 즉시 초기화: load() 완료 전 언마운트 시
+      // 이전 날 데이터가 새 날짜에 저장되는 것을 방지
+      prevStateRef.current = { planItems: [], grid: Array(TOTAL_CELLS).fill(EMPTY), completedPeriodIds: [], availableMin: 0 }
     }
     load()
   }, [date])
