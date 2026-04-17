@@ -5,9 +5,10 @@ export async function GET(request: Request) {
   const dateParam = searchParams.get('date')
 
   if (dateParam) {
-    const [y, m, d] = dateParam.split('-').map(Number)
-    const start = new Date(y, m - 1, d, 0, 0, 0, 0)
-    const end = new Date(y, m - 1, d, 23, 59, 59, 999)
+    const start = new Date(dateParam)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(dateParam)
+    end.setHours(23, 59, 59, 999)
 
     const reviews = await prisma.review.findMany({
       where: { dueDate: { gte: start, lte: end } },
