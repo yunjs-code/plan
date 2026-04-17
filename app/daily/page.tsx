@@ -539,6 +539,15 @@ export default function DailyPage() {
         })
       }
       prevDateRef.current = date
+      // 새 날짜 데이터 로딩 전 상태 초기화 (이전 날 데이터가 새 날짜로 저장되는 것 방지)
+      setSavedId(null)
+      setPlanItems([])
+      setGrid(Array(TOTAL_CELLS).fill(EMPTY))
+      setCompletedPeriodIds([])
+      setReviews([])
+      setSessions([])
+      setPeriodPlans([])
+      setSelectedTask(null)
     }
     load()
   }, [date])
