@@ -460,41 +460,13 @@ export default function DailyPage() {
 
     setIsLoading(true)
 
-    const OFFSETS = [1, 3, 7, 14, 21, 30]
-    const [y, m, dd] = dateStr.split('-').map(Number)
-    const sel = new Date(y, m - 1, dd)
-    const pastDates = OFFSETS.map(offset => {
-      const d = new Date(sel); d.setDate(d.getDate() - offset); return { offset, dateStr: toStr(d) }
-    })
-
     try {
-      const [planRes, reviewRes, sessionRes, periodRes, incompleteRes, ...pastReses] = await Promise.all([
-        fetch(`/api/plans/daily?date=${dateStr}`, { signal: sig }),
-        fetch(`/api/reviews?date=${dateStr}`, { signal: sig }),
-        fetch(`/api/sessions?date=${dateStr}`, { signal: sig }),
-        fetch(`/api/plans/period?date=${dateStr}`, { signal: sig }),
-        fetch(`/api/plans/incomplete?before=${dateStr}`, { signal: sig }),
-        ...pastDates.map(({ dateStr: ds }) => fetch(`/api/sessions?date=${ds}`, { signal: sig })),
-      ])
+      // ── Phase 1: 핵심 데이터를 단 1번 요청으로 로드 ──────────────────────
+      const summaryRes = await fetch(`/api/daily-summary?date=${dateStr}`, { signal: sig })
+      if (sig.aborted) return
+      const { plan: planData, reviews: reviewData, sessions: sessionData, periodPlans: periodData } = await summaryRes.json()
 
       if (sig.aborted) return
-
-      const [planData, reviewData, sessionData, periodData, incompleteData, ...pastDataArr] = await Promise.all([
-        planRes.json(), reviewRes.json(), sessionRes.json(), periodRes.json(), incompleteRes.json(),
-        ...pastReses.map(r => r.json()),
-      ])
-
-      if (sig.aborted) return
-
-      // Past study groups
-      const groups: PastStudyGroup[] = pastDates
-        .map(({ offset, dateStr: ds }, i) => ({
-          offset, date: ds,
-          sessions: Array.isArray(pastDataArr[i]) ? pastDataArr[i] : [],
-        }))
-        .filter(g => g.sessions.length > 0)
-      setPastStudyGroups(groups)
-      setIncompletePlans(Array.isArray(incompleteData) ? incompleteData : [])
 
       // Daily plan
       if (planData && planData.id) {
@@ -530,6 +502,41 @@ export default function DailyPage() {
       } else {
         setPeriodPlans([])
       }
+
+      // 핵심 데이터 완료 → 로딩 표시 해제
+      setIsLoading(false)
+
+      // ── Phase 2: 과거 세션 & 미완료 계획은 백그라운드에서 로드 ────────────
+      const OFFSETS = [1, 3, 7, 14, 21, 30]
+      const [y, m, dd] = dateStr.split('-').map(Number)
+      const sel = new Date(y, m - 1, dd)
+      const pastDates = OFFSETS.map(offset => {
+        const d = new Date(sel); d.setDate(d.getDate() - offset); return { offset, dateStr: toStr(d) }
+      })
+
+      const [incompleteRes, ...pastReses] = await Promise.all([
+        fetch(`/api/plans/incomplete?before=${dateStr}`, { signal: sig }),
+        ...pastDates.map(({ dateStr: ds }) => fetch(`/api/sessions?date=${ds}`, { signal: sig })),
+      ])
+
+      if (sig.aborted) return
+
+      const [incompleteData, ...pastDataArr] = await Promise.all([
+        incompleteRes.json(),
+        ...pastReses.map(r => r.json()),
+      ])
+
+      if (sig.aborted) return
+
+      const groups: PastStudyGroup[] = pastDates
+        .map(({ offset, dateStr: ds }, i) => ({
+          offset, date: ds,
+          sessions: Array.isArray(pastDataArr[i]) ? pastDataArr[i] : [],
+        }))
+        .filter(g => g.sessions.length > 0)
+      setPastStudyGroups(groups)
+      setIncompletePlans(Array.isArray(incompleteData) ? incompleteData : [])
+
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       console.error('load failed', err)
