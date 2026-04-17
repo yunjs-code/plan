@@ -12,9 +12,9 @@ interface PlanItem {
   plannedMin: number
   doubled: boolean
   completedAt?: string
+  sessionId?: string // auto-created session when marked complete
 }
 
-// A plan with a date range — stored in Plan model (type='PERIOD')
 interface PeriodPlan {
   id: string
   title: string
@@ -111,9 +111,7 @@ function cellBg(v: number, tasks: DayTask[]) {
 // ─── Edit Item Modal ──────────────────────────────────────────────────────────
 
 function EditItemModal({
-  item,
-  onSave,
-  onClose,
+  item, onSave, onClose,
 }: {
   item: PlanItem
   onSave: (updated: PlanItem) => void
@@ -131,12 +129,9 @@ function EditItemModal({
     const base = Number(form.baseMin)
     if (!form.label.trim() || !base) return
     onSave({
-      subject: form.subject,
-      type: form.type,
-      label: form.label,
-      plannedMin: form.doubled ? base * 2 : base,
-      doubled: form.doubled,
-      completedAt: item.completedAt,
+      subject: form.subject, type: form.type, label: form.label,
+      plannedMin: form.doubled ? base * 2 : base, doubled: form.doubled,
+      completedAt: item.completedAt, sessionId: item.sessionId,
     })
   }
 
@@ -189,14 +184,8 @@ function EditItemModal({
 // ─── Plan Input Modal ─────────────────────────────────────────────────────────
 
 function PlanInputModal({
-  date,
-  planItems,
-  periodPlans,
-  onAdd,
-  onRemove,
-  onAddPeriod,
-  onRemovePeriod,
-  onClose,
+  date, planItems, periodPlans,
+  onAdd, onRemove, onAddPeriod, onRemovePeriod, onClose,
 }: {
   date: string
   planItems: PlanItem[]
@@ -230,25 +219,19 @@ function PlanInputModal({
       onAdd(item)
     }
     setNewItem({ subject: SUBJECTS[0], type: SESSION_TYPES[0], label: '', baseMin: '', doubled: false })
-    setHasPeriod(false)
-    setStartDate(date)
-    setEndDate(date)
+    setHasPeriod(false); setStartDate(date); setEndDate(date)
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-[520px] max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-sm font-bold text-gray-800">계획 입력</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
         </div>
-
         <div className="flex flex-col gap-5 p-6 overflow-y-auto">
-          {/* Add form */}
           <div className="space-y-2.5">
             <p className="text-xs font-semibold text-gray-500">새 항목 추가</p>
-
             <div className="grid grid-cols-2 gap-2">
               <select className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
                 value={newItem.subject} onChange={e => setNewItem({ ...newItem, subject: e.target.value })}>
@@ -259,12 +242,10 @@ function PlanInputModal({
                 {SESSION_TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
               </select>
             </div>
-
             <input className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
               placeholder="내용 (예: 미적분 3단원)"
               value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })}
               onKeyDown={e => e.key === 'Enter' && addItem()} />
-
             <div className="flex gap-2 items-center">
               <input type="number" min={1}
                 className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm"
@@ -277,26 +258,22 @@ function PlanInputModal({
                 ×2 복습
               </label>
             </div>
-
-            {/* Period toggle */}
             <div className="border border-gray-100 rounded-xl p-3 bg-gray-50">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={hasPeriod}
-                  onChange={e => setHasPeriod(e.target.checked)} />
+                <input type="checkbox" checked={hasPeriod} onChange={e => setHasPeriod(e.target.checked)} />
                 <span className="text-xs font-medium text-gray-600">기간 설정</span>
                 <span className="text-xs text-gray-400">(설정 시 해당 기간 동안 매일 표시됩니다)</span>
               </label>
               {hasPeriod && (
                 <div className="flex items-center gap-2 mt-2.5">
                   <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
                   <span className="text-xs text-gray-400">~</span>
                   <input type="date" value={endDate} min={startDate} onChange={e => setEndDate(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
                 </div>
               )}
             </div>
-
             <button onClick={addItem} disabled={saving}
               className="w-full py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50"
               style={{ backgroundColor: '#1e3a5f' }}>
@@ -304,7 +281,6 @@ function PlanInputModal({
             </button>
           </div>
 
-          {/* Daily plan items */}
           {planItems.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-gray-500 mb-2">
@@ -326,10 +302,9 @@ function PlanInputModal({
             </div>
           )}
 
-          {/* Period plan items */}
           {periodPlans.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">기간 계획 <span className="text-gray-300 font-normal">(이 날짜에 포함된 계획)</span></p>
+              <p className="text-xs font-semibold text-gray-500 mb-2">기간 계획</p>
               <div className="space-y-1.5">
                 {periodPlans.map((pp, i) => (
                   <div key={pp.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-50 border border-purple-100 group">
@@ -353,7 +328,6 @@ function PlanInputModal({
             <p className="text-xs text-gray-300 text-center py-2">아직 등록된 계획이 없습니다</p>
           )}
         </div>
-
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
           <button onClick={onClose}
             className="px-5 py-2 rounded-lg text-white text-sm font-medium" style={{ backgroundColor: '#1e3a5f' }}>
@@ -384,25 +358,31 @@ export default function DailyPage() {
   const [editingItem, setEditingItem] = useState<{ kind: 'daily'; idx: number } | { kind: 'period'; id: string } | null>(null)
   const [pastStudyGroups, setPastStudyGroups] = useState<PastStudyGroup[]>([])
   const [incompletePlans, setIncompletePlans] = useState<{ date: string; items: IncompletePlanItem[] }[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
   const isPainting = useRef(false)
   const paintVal = useRef<number>(EMPTY)
+
+  // ── Reliable state refs (updated after every render) ─────────────────────────
+  // Used to read latest state in async/debounced contexts without stale closures
+  const latestRef = useRef({ planItems, grid, completedPeriodIds, date, savedId })
+  useEffect(() => {
+    latestRef.current = { planItems, grid, completedPeriodIds, date, savedId }
+  })
+
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadAbortRef = useRef<AbortController | null>(null)
   const prevDateRef = useRef(date)
-  const prevStateRef = useRef({ planItems, grid, completedPeriodIds, availableMin: 0 })
 
   // tasks order: planItems → reviews → periodItems (must match save/load order)
   const tasks: DayTask[] = [
     ...planItems.map((it, i) => ({
-      kind: 'plan' as const,
-      planIdx: i,
-      subject: it.subject,
-      label: it.label,
-      plannedMin: it.plannedMin,
+      kind: 'plan' as const, planIdx: i,
+      subject: it.subject, label: it.label, plannedMin: it.plannedMin,
       color: PLAN_COLORS[i % PLAN_COLORS.length],
     })),
     ...reviews.map((r, i) => ({
-      kind: 'review' as const,
-      reviewId: r.id,
+      kind: 'review' as const, reviewId: r.id,
       subject: r.session.subject,
       label: r.session.chapter ?? `${TYPE_LABELS[r.session.type] ?? r.session.type} 복습`,
       plannedMin: 30,
@@ -410,143 +390,186 @@ export default function DailyPage() {
     })),
     ...periodPlans.map((pp, i) => ({
       kind: 'plan' as const,
-      subject: pp.content.subject,
-      label: pp.content.label,
-      plannedMin: pp.content.plannedMin,
+      subject: pp.content.subject, label: pp.content.label, plannedMin: pp.content.plannedMin,
       color: PERIOD_COLORS[i % PERIOD_COLORS.length],
     })),
   ]
 
-  // Base index where period items start in tasks[]
   const periodBase = planItems.length + reviews.length
-
   const availableMin = grid.filter(v => v === AVAIL).length * CELL_MIN
   const plannedMin = planItems.reduce((s, it) => s + it.plannedMin, 0)
   const actualMin = sessions.reduce((s, se) => s + se.durationMin, 0)
   const taskAssigned = tasks.map((_, i) => grid.filter(v => v === i).length * CELL_MIN)
 
-  // ── Data loading ────────────────────────────────────────────────────────────
+  // ── Core save function (uses explicit params to avoid stale closures) ─────────
 
-  async function load() {
+  async function saveExplicit(
+    items: PlanItem[],
+    gridData: number[],
+    cpi: string[],
+    dateStr: string,
+    quiet = false,
+  ) {
+    const am = gridData.filter(v => v === AVAIL).length * CELL_MIN
+    try {
+      const res = await fetch('/api/plans/daily', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: dateStr, availableMin: am, items: { items, grid: gridData, completedPeriodIds: cpi } }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSavedId(data.id)
+        if (!quiet) {
+          setSaveMsg('저장됨')
+          setTimeout(() => setSaveMsg(''), 2000)
+        }
+        return data.id as string
+      }
+    } catch {
+      // ignore network errors in background saves
+    }
+    return null
+  }
+
+  // ── Save using latest state from refs (for debounced saves) ──────────────────
+
+  function triggerSave(delay = 600) {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    debounceTimerRef.current = setTimeout(() => {
+      const { planItems: pi, grid: g, completedPeriodIds: cpi, date: d } = latestRef.current
+      saveExplicit(pi, g, cpi, d, true)
+    }, delay)
+  }
+
+  // ── Manual save (immediate, with feedback) ───────────────────────────────────
+
+  async function save() {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    await saveExplicit(planItems, grid, completedPeriodIds, date, false)
+  }
+
+  // ── Data loading ─────────────────────────────────────────────────────────────
+
+  async function load(dateStr: string) {
+    // Cancel any in-flight load
+    if (loadAbortRef.current) loadAbortRef.current.abort()
+    const controller = new AbortController()
+    loadAbortRef.current = controller
+    const sig = controller.signal
+
+    setIsLoading(true)
+
     const OFFSETS = [1, 3, 7, 14, 21, 30]
-    const [y, m, dd] = date.split('-').map(Number)
+    const [y, m, dd] = dateStr.split('-').map(Number)
     const sel = new Date(y, m - 1, dd)
     const pastDates = OFFSETS.map(offset => {
       const d = new Date(sel); d.setDate(d.getDate() - offset); return { offset, dateStr: toStr(d) }
     })
 
-    const [planRes, reviewRes, sessionRes, periodRes, incompleteRes, ...pastReses] = await Promise.all([
-      fetch(`/api/plans/daily?date=${date}`),
-      fetch(`/api/reviews?date=${date}`),
-      fetch(`/api/sessions?date=${date}`),
-      fetch(`/api/plans/period?date=${date}`),
-      fetch(`/api/plans/incomplete?before=${date}`),
-      ...pastDates.map(({ dateStr }) => fetch(`/api/sessions?date=${dateStr}`)),
-    ])
-    const [planData, reviewData, sessionData, periodData, incompleteData, ...pastDataArr] = await Promise.all([
-      planRes.json(), reviewRes.json(), sessionRes.json(), periodRes.json(), incompleteRes.json(),
-      ...pastReses.map(r => r.json()),
-    ])
+    try {
+      const [planRes, reviewRes, sessionRes, periodRes, incompleteRes, ...pastReses] = await Promise.all([
+        fetch(`/api/plans/daily?date=${dateStr}`, { signal: sig }),
+        fetch(`/api/reviews?date=${dateStr}`, { signal: sig }),
+        fetch(`/api/sessions?date=${dateStr}`, { signal: sig }),
+        fetch(`/api/plans/period?date=${dateStr}`, { signal: sig }),
+        fetch(`/api/plans/incomplete?before=${dateStr}`, { signal: sig }),
+        ...pastDates.map(({ dateStr: ds }) => fetch(`/api/sessions?date=${ds}`, { signal: sig })),
+      ])
 
-    const groups: PastStudyGroup[] = pastDates
-      .map(({ offset, dateStr }, i) => ({
-        offset,
-        date: dateStr,
-        sessions: Array.isArray(pastDataArr[i]) ? pastDataArr[i] : [],
-      }))
-      .filter(g => g.sessions.length > 0)
-    setPastStudyGroups(groups)
-    setIncompletePlans(Array.isArray(incompleteData) ? incompleteData : [])
+      if (sig.aborted) return
 
-    if (planData) {
-      setSavedId(planData.id)
-      const raw = planData.items
-      let loadedItems: PlanItem[] = []
-      let loadedGrid: number[] = Array(TOTAL_CELLS).fill(EMPTY)
-      if (Array.isArray(raw)) {
-        loadedItems = raw
-      } else if (raw && typeof raw === 'object') {
-        loadedItems = raw.items ?? []
-        const g = raw.grid
-        if (Array.isArray(g) && g.length === TOTAL_CELLS) loadedGrid = g
+      const [planData, reviewData, sessionData, periodData, incompleteData, ...pastDataArr] = await Promise.all([
+        planRes.json(), reviewRes.json(), sessionRes.json(), periodRes.json(), incompleteRes.json(),
+        ...pastReses.map(r => r.json()),
+      ])
+
+      if (sig.aborted) return
+
+      // Past study groups
+      const groups: PastStudyGroup[] = pastDates
+        .map(({ offset, dateStr: ds }, i) => ({
+          offset, date: ds,
+          sessions: Array.isArray(pastDataArr[i]) ? pastDataArr[i] : [],
+        }))
+        .filter(g => g.sessions.length > 0)
+      setPastStudyGroups(groups)
+      setIncompletePlans(Array.isArray(incompleteData) ? incompleteData : [])
+
+      // Daily plan
+      if (planData && planData.id) {
+        setSavedId(planData.id)
+        const raw = planData.items
+        let loadedItems: PlanItem[] = []
+        let loadedGrid: number[] = Array(TOTAL_CELLS).fill(EMPTY)
+        if (Array.isArray(raw)) {
+          loadedItems = raw
+        } else if (raw && typeof raw === 'object') {
+          loadedItems = raw.items ?? []
+          const g = raw.grid
+          if (Array.isArray(g) && g.length === TOTAL_CELLS) loadedGrid = g
+        }
+        setPlanItems(loadedItems)
+        setGrid(loadedGrid)
+        setCompletedPeriodIds(Array.isArray(raw?.completedPeriodIds) ? raw.completedPeriodIds : [])
+      } else {
+        setSavedId(null)
+        setPlanItems([])
+        setGrid(Array(TOTAL_CELLS).fill(EMPTY))
+        setCompletedPeriodIds([])
       }
-      setPlanItems(loadedItems)
-      setGrid(loadedGrid)
-      setCompletedPeriodIds(Array.isArray(raw?.completedPeriodIds) ? raw.completedPeriodIds : [])
-    } else {
-      setSavedId(null)
-      setPlanItems([])
-      setGrid(Array(TOTAL_CELLS).fill(EMPTY))
-      setCompletedPeriodIds([])
-    }
 
-    setReviews(Array.isArray(reviewData) ? reviewData : [])
-    setSessions(Array.isArray(sessionData) ? sessionData : [])
-    setSelectedTask(null)
+      setReviews(Array.isArray(reviewData) ? reviewData : [])
+      setSessions(Array.isArray(sessionData) ? sessionData : [])
+      setSelectedTask(null)
 
-    // Period plans: normalize dates from ISO strings
-    if (Array.isArray(periodData)) {
-      setPeriodPlans(periodData.map((p: { id: string; title: string; startDate: string; endDate: string; content: PlanItem }) => ({
-        id: p.id,
-        title: p.title,
-        startDate: p.startDate,
-        endDate: p.endDate,
-        content: p.content,
-      })))
-    } else {
-      setPeriodPlans([])
+      if (Array.isArray(periodData)) {
+        setPeriodPlans(periodData.map((p: { id: string; title: string; startDate: string; endDate: string; content: PlanItem }) => ({
+          id: p.id, title: p.title, startDate: p.startDate, endDate: p.endDate, content: p.content,
+        })))
+      } else {
+        setPeriodPlans([])
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      console.error('load failed', err)
+    } finally {
+      if (!sig.aborted) setIsLoading(false)
     }
   }
 
-  // prevStateRef를 항상 최신 상태로 유지
-  useEffect(() => {
-    prevStateRef.current = { planItems, grid, completedPeriodIds, availableMin }
-  })
-
-  // 페이지를 떠날 때(언마운트) 자동 저장
-  useEffect(() => {
-    return () => {
-      const { planItems: pi, grid: g, completedPeriodIds: cpi, availableMin: am } = prevStateRef.current
-      const currentDate = prevDateRef.current
-      if (pi.length > 0 || g.some(v => v !== EMPTY)) {
-        fetch('/api/plans/daily', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: currentDate,
-            availableMin: am,
-            items: { items: pi, grid: g, completedPeriodIds: cpi },
-          }),
-        })
-      }
-    }
-  }, [])
+  // ── Date change effect ───────────────────────────────────────────────────────
 
   useEffect(() => {
     const prevDate = prevDateRef.current
+
     if (prevDate !== date) {
-      // 날짜가 바뀌기 전 데이터를 자동 저장
-      const { planItems: pi, grid: g, completedPeriodIds: cpi, availableMin: am } = prevStateRef.current
+      // Cancel pending debounced save
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+
+      // Save previous date's data using latestRef (which reflects state at render time)
+      // latestRef.current still holds prevDate's data at this point
+      const { planItems: pi, grid: g, completedPeriodIds: cpi } = latestRef.current
       if (pi.length > 0 || g.some(v => v !== EMPTY)) {
-        fetch('/api/plans/daily', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: prevDate,
-            availableMin: am,
-            items: { items: pi, grid: g, completedPeriodIds: cpi },
-          }),
-        })
+        saveExplicit(pi, g, cpi, prevDate, true)
       }
+
+      // Immediately clear state so latestRef won't carry stale data
+      // if user rapidly navigates again before load completes
+      setPlanItems([])
+      setGrid(Array(TOTAL_CELLS).fill(EMPTY))
+      setCompletedPeriodIds([])
+      setSavedId(null)
+      setSelectedTask(null)
+
       prevDateRef.current = date
-      // prevStateRef를 즉시 초기화: load() 완료 전 언마운트 시
-      // 이전 날 데이터가 새 날짜에 저장되는 것을 방지
-      prevStateRef.current = { planItems: [], grid: Array(TOTAL_CELLS).fill(EMPTY), completedPeriodIds: [], availableMin: 0 }
     }
-    load()
+
+    load(date)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 
-  // ── Grid painting ────────────────────────────────────────────────────────────
+  // ── Grid painting ─────────────────────────────────────────────────────────────
 
   function resolveVal(idx: number) {
     const cur = grid[idx]
@@ -565,6 +588,7 @@ export default function DailyPage() {
       }
       return next
     })
+    triggerSave(800)
   }
 
   function onMouseDown(idx: number, e: React.MouseEvent) {
@@ -582,21 +606,27 @@ export default function DailyPage() {
     if (el?.dataset.cidx) paint(Number(el.dataset.cidx))
   }
 
-  // ── Plan items ───────────────────────────────────────────────────────────────
+  // ── Plan items ────────────────────────────────────────────────────────────────
 
   function addItem(item: PlanItem) {
-    setPlanItems(prev => [...prev, item])
+    const newItems = [...planItems, item]
+    setPlanItems(newItems)
+    // Save immediately so the plan appears in study records
+    saveExplicit(newItems, grid, completedPeriodIds, date, true)
   }
 
   function removePlanItem(idx: number) {
-    setGrid(prev => prev.map(v => {
+    const newGrid = grid.map(v => {
       if (v === idx) return AVAIL
       if (v > idx) return v - 1
       return v
-    }))
-    setPlanItems(prev => prev.filter((_, i) => i !== idx))
+    })
+    const newItems = planItems.filter((_, i) => i !== idx)
+    setGrid(newGrid)
+    setPlanItems(newItems)
     if (selectedTask === idx) setSelectedTask(null)
     else if (selectedTask !== null && selectedTask > idx) setSelectedTask(selectedTask - 1)
+    saveExplicit(newItems, newGrid, completedPeriodIds, date, true)
   }
 
   async function addPeriodPlan(item: PlanItem, startDate: string, endDate: string) {
@@ -614,37 +644,95 @@ export default function DailyPage() {
     }
   }
 
-  function completePlanItem(idx: number) {
-    setPlanItems(prev => prev.map((it, i) =>
-      i === idx ? { ...it, completedAt: new Date().toISOString() } : it
-    ))
+  async function completePlanItem(idx: number) {
+    const item = planItems[idx]
+    const now = new Date().toISOString()
+
+    // Create a Session record so reviews (1,3,7,14,21,30) are auto-generated
+    let sessionId: string | undefined
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          type: item.type,
+          subject: item.subject,
+          chapter: item.label,
+          durationMin: item.plannedMin,
+        }),
+      })
+      if (res.ok) {
+        const session = await res.json()
+        sessionId = session.id
+        // Refresh sessions & reviews to show new entries
+        const [sRes, rRes] = await Promise.all([
+          fetch(`/api/sessions?date=${date}`),
+          fetch(`/api/reviews?date=${date}`),
+        ])
+        setSessions(await sRes.json())
+        setReviews(await rRes.json())
+      }
+    } catch {
+      // Continue even if session creation fails
+    }
+
+    const newItems = planItems.map((it, i) =>
+      i === idx ? { ...it, completedAt: now, sessionId } : it
+    )
+    setPlanItems(newItems)
+    saveExplicit(newItems, grid, completedPeriodIds, date, true)
   }
 
-  function uncompletePlanItem(idx: number) {
-    setPlanItems(prev => prev.map((it, i) =>
-      i === idx ? { ...it, completedAt: undefined } : it
-    ))
+  async function uncompletePlanItem(idx: number) {
+    const item = planItems[idx]
+
+    // Delete the auto-created session (and its reviews) if it exists
+    if (item.sessionId) {
+      try {
+        await fetch(`/api/sessions/${item.sessionId}`, { method: 'DELETE' })
+        const [sRes, rRes] = await Promise.all([
+          fetch(`/api/sessions?date=${date}`),
+          fetch(`/api/reviews?date=${date}`),
+        ])
+        setSessions(await sRes.json())
+        setReviews(await rRes.json())
+      } catch {
+        // Continue even if deletion fails
+      }
+    }
+
+    const newItems = planItems.map((it, i) =>
+      i === idx ? { ...it, completedAt: undefined, sessionId: undefined } : it
+    )
+    setPlanItems(newItems)
+    saveExplicit(newItems, grid, completedPeriodIds, date, true)
   }
 
   function updatePlanItem(idx: number, updated: PlanItem) {
-    setPlanItems(prev => prev.map((it, i) => i === idx ? updated : it))
+    const newItems = planItems.map((it, i) => i === idx ? updated : it)
+    setPlanItems(newItems)
     setEditingItem(null)
+    saveExplicit(newItems, grid, completedPeriodIds, date, true)
   }
 
   function completePeriodPlan(id: string) {
-    setCompletedPeriodIds(prev => prev.includes(id) ? prev : [...prev, id])
+    const newCpi = completedPeriodIds.includes(id) ? completedPeriodIds : [...completedPeriodIds, id]
+    setCompletedPeriodIds(newCpi)
+    saveExplicit(planItems, grid, newCpi, date, true)
   }
 
   function uncompletePeriodPlan(id: string) {
-    setCompletedPeriodIds(prev => prev.filter(i => i !== id))
+    const newCpi = completedPeriodIds.filter(i => i !== id)
+    setCompletedPeriodIds(newCpi)
+    saveExplicit(planItems, grid, newCpi, date, true)
   }
 
   async function updatePeriodPlan(id: string, updated: PlanItem) {
     setPeriodPlans(prev => prev.map(p => p.id === id ? { ...p, content: { ...p.content, ...updated } } : p))
     setEditingItem(null)
     await fetch(`/api/plans/period/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: updated }),
     })
   }
@@ -652,31 +740,19 @@ export default function DailyPage() {
   async function removePeriodPlan(id: string) {
     const periodIdx = periodPlans.findIndex(p => p.id === id)
     const taskIdx = planItems.length + reviews.length + periodIdx
-    setGrid(prev => prev.map(v => {
+    const newGrid = grid.map(v => {
       if (v === taskIdx) return AVAIL
       if (v > taskIdx) return v - 1
       return v
-    }))
+    })
+    setGrid(newGrid)
     if (selectedTask === taskIdx) setSelectedTask(null)
     else if (selectedTask !== null && selectedTask > taskIdx) setSelectedTask(selectedTask - 1)
     await fetch(`/api/plans/period/${id}`, { method: 'DELETE' })
     setPeriodPlans(prev => prev.filter(p => p.id !== id))
   }
 
-  // ── Save ─────────────────────────────────────────────────────────────────────
-
-  async function save() {
-    const res = await fetch('/api/plans/daily', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, availableMin, items: { items: planItems, grid, completedPeriodIds } }),
-    })
-    if (res.ok) {
-      setSavedId((await res.json()).id)
-      setSaveMsg('저장됨'); setTimeout(() => setSaveMsg(''), 2000)
-    }
-  }
-
-  // ── Mark review done ─────────────────────────────────────────────────────────
+  // ── Reviews ───────────────────────────────────────────────────────────────────
 
   async function markReviewDone(id: string) {
     await fetch(`/api/reviews/${id}/done`, { method: 'PUT' })
@@ -728,9 +804,7 @@ export default function DailyPage() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-gray-400">실제</span>
-            <span className={`font-semibold ${actualMin >= plannedMin && plannedMin > 0 ? 'text-green-600' : 'text-gray-700'}`}>
-              {formatMinutes(actualMin)}
-            </span>
+            <span className={`font-semibold ${actualMin >= plannedMin && plannedMin > 0 ? 'text-green-600' : 'text-gray-700'}`}>{formatMinutes(actualMin)}</span>
           </div>
           {plannedMin > 0 && (
             <div className="flex items-center gap-1.5">
@@ -740,6 +814,7 @@ export default function DailyPage() {
               </span>
             </div>
           )}
+          {isLoading && <span className="text-gray-300 text-xs">불러오는 중…</span>}
         </div>
 
         <div className="flex items-center gap-2 ml-auto text-xs">
@@ -765,7 +840,6 @@ export default function DailyPage() {
       {/* ── Three-panel content ── */}
       <div className="flex flex-1 overflow-hidden" onMouseUp={onMouseUp} onTouchEnd={onMouseUp}>
 
-
         {/* ── LEFT: Past study panel ── */}
         {pastStudyGroups.length > 0 && (
           <div className="w-52 flex-shrink-0 border-r border-gray-100 bg-gray-50 overflow-y-auto">
@@ -789,9 +863,7 @@ export default function DailyPage() {
                               <span className="text-xs font-semibold text-blue-600">{s.subject}</span>
                               <span className="text-xs text-gray-400">{TYPE_LABELS[s.type] ?? s.type}</span>
                             </div>
-                            {s.chapter && (
-                              <div className="text-xs text-gray-700 truncate">{s.chapter}</div>
-                            )}
+                            {s.chapter && <div className="text-xs text-gray-700 truncate">{s.chapter}</div>}
                             <div className="text-xs text-gray-400 mt-0.5">{s.durationMin}분</div>
                           </div>
                         ))}
@@ -851,7 +923,6 @@ export default function DailyPage() {
         <div className="w-64 flex-shrink-0 border-l border-gray-100 bg-gray-50 overflow-y-auto">
           <div className="p-4 space-y-4">
 
-            {/* Stats */}
             <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
               <p className="text-xs font-semibold text-blue-700 mb-1">오늘 가용 시간</p>
               {availableMin > 0 ? (
@@ -886,7 +957,6 @@ export default function DailyPage() {
               )}
             </div>
 
-            {/* Daily plan items — active only */}
             {(() => {
               const activeItems = planItems.map((it, i) => ({ it, i })).filter(({ it }) => !it.completedAt)
               const completedDailyItems = planItems.map((it, i) => ({ it, i })).filter(({ it }) => !!it.completedAt)
@@ -943,7 +1013,6 @@ export default function DailyPage() {
                     )}
                   </div>
 
-                  {/* Period plan items — active only */}
                   {activePeriod.length > 0 && (
                     <>
                       <div className="border-t border-gray-200" />
@@ -997,7 +1066,6 @@ export default function DailyPage() {
                     </>
                   )}
 
-                  {/* Completed plans */}
                   {(completedDailyItems.length > 0 || completedPeriod.length > 0) && (
                     <>
                       <div className="border-t border-gray-200" />
@@ -1010,6 +1078,9 @@ export default function DailyPage() {
                               <div className="flex-1 min-w-0">
                                 <div className="text-gray-400 text-xs truncate line-through">{item.subject} · {TYPE_LABELS[item.type]}</div>
                                 <div className="text-gray-500 text-xs truncate line-through">{item.label}</div>
+                                {item.sessionId && (
+                                  <div className="text-xs text-teal-400 mt-0.5">복습 일정 생성됨 ✓</div>
+                                )}
                               </div>
                               <button onClick={() => uncompletePlanItem(i)}
                                 className="text-xs text-gray-300 hover:text-blue-400 opacity-0 group-hover:opacity-100 flex-shrink-0">↩</button>
@@ -1036,7 +1107,6 @@ export default function DailyPage() {
 
             <div className="border-t border-gray-200" />
 
-            {/* Incomplete plans from past days */}
             {incompletePlans.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">
@@ -1072,7 +1142,6 @@ export default function DailyPage() {
 
             <div className="border-t border-gray-200" />
 
-            {/* Reviews */}
             <div>
               <p className="text-xs font-semibold text-gray-500 mb-2">오늘 복습 ({reviews.length})</p>
               {reviews.length === 0 ? (
@@ -1113,7 +1182,6 @@ export default function DailyPage() {
               )}
             </div>
 
-            {/* Legend */}
             <div className="border-t border-gray-200 pt-3">
               <p className="text-xs text-gray-400 mb-2">범례</p>
               <div className="space-y-1">
@@ -1137,10 +1205,8 @@ export default function DailyPage() {
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* ── Edit Item Modal ── */}
       {editingItem && editingItem.kind === 'daily' && (
         <EditItemModal
           item={planItems[editingItem.idx]}
@@ -1160,7 +1226,6 @@ export default function DailyPage() {
         )
       })()}
 
-      {/* ── Plan Input Modal ── */}
       {showPlanModal && (
         <PlanInputModal
           date={date}

@@ -8,10 +8,9 @@ export async function GET(request: Request) {
   const dateParam = searchParams.get('date')
 
   if (dateParam) {
-    const start = new Date(dateParam)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date(dateParam)
-    end.setHours(23, 59, 59, 999)
+    const [y, m, d] = dateParam.split('-').map(Number)
+    const start = new Date(y, m - 1, d, 0, 0, 0, 0)
+    const end = new Date(y, m - 1, d, 23, 59, 59, 999)
 
     const sessions = await prisma.session.findMany({
       where: { date: { gte: start, lte: end } },
@@ -42,7 +41,8 @@ export async function POST(request: Request) {
     return Response.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 })
   }
 
-  const sessionDate = new Date(date)
+  const [sy, sm, sd] = date.split('-').map(Number)
+  const sessionDate = new Date(sy, sm - 1, sd, 12, 0, 0, 0)
 
   const REVIEW_OFFSETS = [1, 3, 7, 14, 21, 30]
 
