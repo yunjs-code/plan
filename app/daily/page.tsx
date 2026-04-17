@@ -389,7 +389,6 @@ export default function DailyPage() {
   const paintVal = useRef<number>(EMPTY)
   const prevDateRef = useRef(date)
   const prevStateRef = useRef({ planItems, grid, completedPeriodIds, availableMin: 0 })
-  const loadingDateRef = useRef<string>('')
 
   // tasks order: planItems → reviews → periodItems (must match save/load order)
   const tasks: DayTask[] = [
@@ -429,31 +428,25 @@ export default function DailyPage() {
   // ── Data loading ────────────────────────────────────────────────────────────
 
   async function load() {
-    const loadForDate = date
-    loadingDateRef.current = loadForDate
-
     const OFFSETS = [1, 3, 7, 14, 21, 30]
-    const [y, m, dd] = loadForDate.split('-').map(Number)
+    const [y, m, dd] = date.split('-').map(Number)
     const sel = new Date(y, m - 1, dd)
     const pastDates = OFFSETS.map(offset => {
       const d = new Date(sel); d.setDate(d.getDate() - offset); return { offset, dateStr: toStr(d) }
     })
 
     const [planRes, reviewRes, sessionRes, periodRes, incompleteRes, ...pastReses] = await Promise.all([
-      fetch(`/api/plans/daily?date=${loadForDate}`),
-      fetch(`/api/reviews?date=${loadForDate}`),
-      fetch(`/api/sessions?date=${loadForDate}`),
-      fetch(`/api/plans/period?date=${loadForDate}`),
-      fetch(`/api/plans/incomplete?before=${loadForDate}`),
+      fetch(`/api/plans/daily?date=${date}`),
+      fetch(`/api/reviews?date=${date}`),
+      fetch(`/api/sessions?date=${date}`),
+      fetch(`/api/plans/period?date=${date}`),
+      fetch(`/api/plans/incomplete?before=${date}`),
       ...pastDates.map(({ dateStr }) => fetch(`/api/sessions?date=${dateStr}`)),
     ])
     const [planData, reviewData, sessionData, periodData, incompleteData, ...pastDataArr] = await Promise.all([
       planRes.json(), reviewRes.json(), sessionRes.json(), periodRes.json(), incompleteRes.json(),
       ...pastReses.map(r => r.json()),
     ])
-
-    // 더 최신 load가 이미 시작됐으면 이 결과는 버림 (race condition 방지)
-    if (loadingDateRef.current !== loadForDate) return
 
     const groups: PastStudyGroup[] = pastDates
       .map(({ offset, dateStr }, i) => ({
@@ -505,11 +498,9 @@ export default function DailyPage() {
     }
   }
 
-  // prevStateRef를 항상 최신 상태로 유지 (날짜가 바뀌지 않은 경우에만)
+  // prevStateRef를 항상 최신 상태로 유지
   useEffect(() => {
-    if (prevDateRef.current === date) {
-      prevStateRef.current = { planItems, grid, completedPeriodIds, availableMin }
-    }
+    prevStateRef.current = { planItems, grid, completedPeriodIds, availableMin }
   })
 
   // 페이지를 떠날 때(언마운트) 자동 저장
@@ -534,7 +525,7 @@ export default function DailyPage() {
   useEffect(() => {
     const prevDate = prevDateRef.current
     if (prevDate !== date) {
-      // 날짜가 바뀌기 전 데이터를 자동 저장 (prevStateRef는 아직 이전 날짜 기준)
+      // 날짜가 바뀌기 전 데이터를 자동 저장
       const { planItems: pi, grid: g, completedPeriodIds: cpi, availableMin: am } = prevStateRef.current
       if (pi.length > 0 || g.some(v => v !== EMPTY)) {
         fetch('/api/plans/daily', {
@@ -547,11 +538,8 @@ export default function DailyPage() {
           }),
         })
       }
-      // prevDateRef를 새 날짜로 업데이트하고 state 초기화
-      // (이후 렌더링에서 prevStateRef가 빈 state로 업데이트되므로
-      //  언마운트 자동저장이 이전 날 데이터를 새 날짜에 저장하는 일을 방지)
       prevDateRef.current = date
-      prevStateRef.current = { planItems: [], grid: Array(TOTAL_CELLS).fill(EMPTY), completedPeriodIds: [], availableMin: 0 }
+      // 새 날짜 데이터 로딩 전 상태 초기화 (이전 날 데이터가 새 날짜로 저장되는 것 방지)
       setSavedId(null)
       setPlanItems([])
       setGrid(Array(TOTAL_CELLS).fill(EMPTY))
